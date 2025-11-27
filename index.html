@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT 账号商城</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Quill Editor -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+    <!-- Particles.js -->
+    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #020617; /* Deep Blue */
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+
+        #particles-js {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .ql-toolbar {
+            background-color: #e2e8f0;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        .ql-container {
+            background-color: #f8fafc;
+            color: #0f172a;
+            border-radius: 0 0 0.5rem 0.5rem;
+            height: 200px;
+        }
+
+        /* Modal Transitions */
+        .modal {
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .modal.active {
+            pointer-events: auto;
+            opacity: 1;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Background -->
+    <div id="particles-js"></div>
+
+    <!-- Navbar -->
+    <nav class="glass-panel sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 id="site-title" class="text-2xl font-bold text-blue-400 cursor-pointer select-none tracking-wider">GPT Store</h1>
+            <div class="flex gap-4">
+                <button onclick="renderHome()" class="hover:text-blue-400 transition"><i class="fas fa-home"></i> 首页</button>
+                <button id="admin-link" onclick="checkAdminLogin()" class="hidden hover:text-blue-400 transition"><i class="fas fa-cog"></i> 管理</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main id="app" class="flex-grow container mx-auto px-4 py-8">
+        <!-- Content injected via JS -->
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel mt-auto">
+        <div class="container mx-auto px-4 py-6 text-center text-gray-400">
+            <p id="footer-contact"></p>
+            <p class="text-sm mt-2">&copy; 2025 GPT Store. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div class="glass-panel p-8 rounded-xl w-full max-w-sm relative">
+            <button onclick="closeModal('login-modal')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+            <h2 class="text-xl font-bold mb-4 text-center">管理员登录</h2>
+            <input type="password" id="admin-pass-input" placeholder="请输入密码" class="w-full p-3 rounded bg-slate-800 border border-slate-600 text-white mb-4 focus:outline-none focus:border-blue-500">
+            <button onclick="attemptLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded transition">登录</button>
+        </div>
+    </div>
+
+    <!-- Buy Modal -->
+    <div id="buy-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+        <div class="glass-panel p-8 rounded-xl w-full max-w-md relative text-center">
+            <button onclick="closeModal('buy-modal')" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+            <h2 class="text-2xl font-bold mb-6 text-blue-400">联系购买</h2>
+            <div class="space-y-4 text-lg">
+                <div class="p-4 bg-slate-800 rounded-lg flex items-center justify-between">
+                    <span><i class="fab fa-weixin text-green-500 mr-2"></i> 微信</span>
+                    <span id="modal-wechat" class="font-mono select-all"></span>
+                </div>
+                <div class="p-4 bg-slate-800 rounded-lg flex items-center justify-between">
+                    <span><i class="fab fa-qq text-blue-500 mr-2"></i> QQ</span>
+                    <span id="modal-qq" class="font-mono select-all"></span>
+                </div>
+            </div>
+            <p class="mt-6 text-gray-400 text-sm">请添加客服好友，备注“购买GPT”</p>
+        </div>
+    </div>
+
+    <!-- Product Edit Modal (Admin) -->
+    <div id="product-modal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
+        <div class="glass-panel p-6 rounded-xl w-full max-w-4xl h-[90vh] overflow-y-auto relative">
+            <button onclick="closeModal('product-modal')" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+            <h2 class="text-xl font-bold mb-4" id="product-modal-title">编辑商品</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">商品名称</label>
+                    <input type="text" id="edit-name" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">价格 (元)</label>
+                        <input type="number" id="edit-price" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1">库存</label>
+                        <input type="number" id="edit-stock" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-1">商品图片 (最多5张, URL或上传)</label>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="img-url-input" placeholder="图片URL..." class="flex-grow p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                    <button onclick="addImageUrl()" class="bg-slate-700 px-3 rounded hover:bg-slate-600">添加URL</button>
+                    <label class="bg-blue-600 px-3 py-2 rounded cursor-pointer hover:bg-blue-700">
+                        <i class="fas fa-upload"></i> 上传
+                        <input type="file" id="img-file-input" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
+                    </label>
+                </div>
+                <div id="img-preview-list" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm text-gray-400 mb-1">商品详情 (富文本)</label>
+                <div id="editor-container"></div>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeModal('product-modal')" class="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">取消</button>
+                <button onclick="saveProduct()" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700">保存商品</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data & State Management ---
+        const defaultData = {
+            config: {
+                title: "GPT 极速发货",
+                wechat: "GPT_Shop_Admin",
+                qq: "88888888",
+                email: "admin@gptstore.com",
+                password: "admin2025"
+            },
+            products: [
+                {
+                    id: 1,
+                    name: "ChatGPT Plus 独享号",
+                    price: 198,
+                    stock: 15,
+                    images: ["https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg"],
+                    desc: "<p><strong>官方正版订阅</strong></p><p>支持GPT-4，DALL-E 3绘图，极速响应。</p><ul><li>独享账号，可改密</li><li>质保30天</li><li>24小时自动发货</li></ul>"
+                },
+                {
+                    id: 2,
+                    name: "OpenAI API Key $5",
+                    price: 25,
+                    stock: 99,
+                    images: ["https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/OpenAI_Logo.svg/1024px-OpenAI_Logo.svg.png"],
+                    desc: "<p><strong>开发者首选</strong></p><p>内含5美元额度，支持GPT-3.5/4 API调用。</p>"
+                },
+                {
+                    id: 3,
+                    name: "ChatGPT 4.0 拼车号",
+                    price: 45,
+                    stock: 5,
+                    images: ["https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg"],
+                    desc: "<p><strong>高性价比</strong></p><p>4人共享车队，适合轻度使用者。</p>"
+                },
+                {
+                    id: 4,
+                    name: "Midjourney 标准版",
+                    price: 88,
+                    stock: 0,
+                    images: ["https://upload.wikimedia.org/wikipedia/commons/e/ed/Midjourney_Emblem.png"],
+                    desc: "<p><strong>AI绘图神器</strong></p><p>共享账号，快速出图。</p>"
+                }
+            ],
+            stats: {
+                visits: 0,
+                views: {} // { productId: count }
+            }
+        };
+
+        let db = JSON.parse(localStorage.getItem('gpt_shop_db')) || defaultData;
+        let isAdmin = sessionStorage.getItem('is_admin') === 'true';
+        let titleClickCount = 0;
+        let titleClickTimer;
+        let quill; // Editor instance
+        let currentEditId = null;
+        let tempImages = []; // Store images during editing
+
+        // --- Initialization ---
+        function init() {
+            // Initialize Particles
+            particlesJS("particles-js", {
+                "particles": {
+                    "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
+                    "color": { "value": "#ffffff" },
+                    "shape": { "type": "circle" },
+                    "opacity": { "value": 0.5, "random": true },
+                    "size": { "value": 3, "random": true },
+                    "line_linked": { "enable": true, "distance": 150, "color": "#ffffff", "opacity": 0.2, "width": 1 },
+                    "move": { "enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out", "bounce": false }
+                },
+                "interactivity": {
+                    "detect_on": "canvas",
+                    "events": { "onhover": { "enable": true, "mode": "repulse" }, "onclick": { "enable": true, "mode": "push" } },
+                    "modes": { "repulse": { "distance": 100, "duration": 0.4 } }
+                },
+                "retina_detect": true
+            });
+
+            // Initialize Quill
+            quill = new Quill('#editor-container', {
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['clean']
+                    ]
+                }
+            });
+
+            // Track Visit (Session based)
+            if (!sessionStorage.getItem('visit_tracked')) {
+                db.stats.visits++;
+                saveDb();
+                sessionStorage.setItem('visit_tracked', 'true');
+            }
+
+            // Setup UI
+            updateGlobalConfig();
+            setupEventListeners();
+            
+            // Initial Render
+            renderHome();
+
+            if(isAdmin) {
+                document.getElementById('admin-link').classList.remove('hidden');
+            }
+        }
+
+        function saveDb() {
+            localStorage.setItem('gpt_shop_db', JSON.stringify(db));
+        }
+
+        function updateGlobalConfig() {
+            document.getElementById('site-title').innerText = db.config.title;
+            document.title = db.config.title;
+            document.getElementById('footer-contact').innerHTML = `联系我们: <i class="fab fa-weixin"></i> ${db.config.wechat} | <i class="fab fa-qq"></i> ${db.config.qq} | <i class="fas fa-envelope"></i> ${db.config.email}`;
+            
+            // Update Modal info
+            document.getElementById('modal-wechat').innerText = db.config.wechat;
+            document.getElementById('modal-qq').innerText = db.config.qq;
+        }
+
+        function setupEventListeners() {
+            // Hidden Admin Access
+            const title = document.getElementById('site-title');
+            title.addEventListener('click', () => {
+                titleClickCount++;
+                clearTimeout(titleClickTimer);
+                titleClickTimer = setTimeout(() => { titleClickCount = 0; }, 2000);
+                
+                if (titleClickCount === 5) {
+                    titleClickCount = 0;
+                    if (isAdmin) {
+                        renderAdmin();
+                    } else {
+                        openModal('login-modal');
+                    }
+                }
+            });
+        }
+
+        // --- Views ---
+
+        function renderHome() {
+            const app = document.getElementById('app');
+            let html = `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">`;
+            
+            db.products.forEach(p => {
+                const img = p.images.length > 0 ? p.images[0] : 'https://via.placeholder.com/300x200?text=No+Image';
+                const stockBadge = p.stock > 0 
+                    ? `<span class="bg-green-600 text-xs px-2 py-1 rounded text-white">库存: ${p.stock}</span>` 
+                    : `<span class="bg-red-600 text-xs px-2 py-1 rounded text-white">缺货</span>`;
+                
+                html += `
+                <div class="product-card glass-panel rounded-xl overflow-hidden cursor-pointer flex flex-col" onclick="renderProductDetail(${p.id})">
+                    <div class="h-48 overflow-hidden bg-slate-800 flex items-center justify-center">
+                        <img src="${img}" class="w-full h-full object-cover hover:scale-110 transition duration-500" alt="${p.name}">
+                    </div>
+                    <div class="p-4 flex flex-col flex-grow">
+                        <h3 class="text-lg font-bold mb-2 truncate">${p.name}</h3>
+                        <div class="mt-auto flex justify-between items-center">
+                            <span class="text-xl font-bold text-blue-400">¥${p.price}</span>
+                            ${stockBadge}
+                        </div>
+                    </div>
+                </div>`;
+            });
+            
+            html += `</div>`;
+            app.innerHTML = html;
+            window.scrollTo(0,0);
+        }
+
+        function renderProductDetail(id) {
+            const p = db.products.find(x => x.id === id);
+            if (!p) return renderHome();
+
+            // Track View
+            if (!db.stats.views[id]) db.stats.views[id] = 0;
+            db.stats.views[id]++;
+            saveDb();
+
+            const app = document.getElementById('app');
+            
+            // Images Grid
+            let imgHtml = '';
+            if (p.images.length > 0) {
+                imgHtml = `<div class="mb-6 rounded-xl overflow-hidden border border-slate-700">
+                    <img src="${p.images[0]}" class="w-full h-auto max-h-[500px] object-contain bg-slate-800">
+                </div>`;
+                if (p.images.length > 1) {
+                    imgHtml += `<div class="flex gap-2 overflow-x-auto pb-2">`;
+                    p.images.forEach(img => {
+                        imgHtml += `<img src="${img}" class="w-24 h-24 object-cover rounded border border-slate-700 cursor-pointer hover:opacity-80" onclick="this.parentElement.previousElementSibling.querySelector('img').src=this.src">`;
+                    });
+                    imgHtml += `</div>`;
+                }
+            }
+
+            app.innerHTML = `
+            <div class="flex flex-col lg:flex-row gap-8">
+                <!-- Left: Content (65%) -->
+                <div class="w-full lg:w-[65%]">
+                    <button onclick="renderHome()" class="mb-4 text-gray-400 hover:text-white"><i class="fas fa-arrow-left"></i> 返回首页</button>
+                    ${imgHtml}
+                    <div class="glass-panel p-6 rounded-xl mt-6">
+                        <h2 class="text-2xl font-bold mb-4 border-b border-slate-700 pb-2">商品详情</h2>
+                        <div class="prose prose-invert max-w-none text-gray-300">
+                            ${p.desc}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Sticky Sidebar (35%) -->
+                <div class="w-full lg:w-[35%] relative">
+                    <div class="sticky top-24 glass-panel p-6 rounded-xl border-t-4 border-blue-500">
+                        <h1 class="text-2xl font-bold mb-2">${p.name}</h1>
+                        <div class="text-sm text-gray-400 mb-6">浏览量: ${db.stats.views[id] || 0}</div>
+                        
+                        <div class="flex justify-between items-end mb-6">
+                            <div class="text-3xl font-bold text-blue-400">¥${p.price}</div>
+                            <div class="${p.stock > 0 ? 'text-green-400' : 'text-red-400'} font-bold">
+                                ${p.stock > 0 ? `库存: ${p.stock}` : '暂时缺货'}
+                            </div>
+                        </div>
+
+                        <button onclick="${p.stock > 0 ? "openModal('buy-modal')" : ''}" 
+                            class="w-full py-4 rounded-lg font-bold text-lg transition transform active:scale-95 ${p.stock > 0 ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/50' : 'bg-slate-700 text-gray-500 cursor-not-allowed'}">
+                            ${p.stock > 0 ? '立即购买' : '缺货中'}
+                        </button>
+
+                        <div class="mt-6 text-sm text-gray-400 space-y-2">
+                            <p><i class="fas fa-check-circle text-green-500"></i> 24小时自动发货</p>
+                            <p><i class="fas fa-check-circle text-green-500"></i> 售后无忧保障</p>
+                            <p><i class="fas fa-shield-alt text-green-500"></i> 安全支付交易</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+            window.scrollTo(0,0);
+        }
+
+        // --- Admin Logic ---
+
+        function attemptLogin() {
+            const input = document.getElementById('admin-pass-input');
+            if (input.value === db.config.password) {
+                isAdmin = true;
+                sessionStorage.setItem('is_admin', 'true');
+                closeModal('login-modal');
+                input.value = '';
+                document.getElementById('admin-link').classList.remove('hidden');
+                renderAdmin();
+            } else {
+                alert('密码错误');
+            }
+        }
+
+        function logout() {
+            isAdmin = false;
+            sessionStorage.removeItem('is_admin');
+            document.getElementById('admin-link').classList.add('hidden');
+            renderHome();
+        }
+
+        function renderAdmin(tabIndex = 0) {
+            if (!isAdmin) return;
+            
+            const app = document.getElementById('app');
+            const tabs = ['商品管理', '访问统计', '网站设置'];
+            
+            let tabContent = '';
+
+            // Tab 0: Products
+            if (tabIndex === 0) {
+                let rows = db.products.map(p => `
+                    <tr class="border-b border-slate-700 hover:bg-slate-800">
+                        <td class="p-3">${p.id}</td>
+                        <td class="p-3 flex items-center gap-2">
+                            <img src="${p.images[0] || ''}" class="w-8 h-8 rounded object-cover bg-slate-600">
+                            <span class="truncate max-w-[150px]">${p.name}</span>
+                        </td>
+                        <td class="p-3">¥${p.price}</td>
+                        <td class="p-3">${p.stock}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="openEditProduct(${p.id})" class="text-blue-400 hover:text-blue-300 mr-2"><i class="fas fa-edit"></i></button>
+                            <button onclick="deleteProduct(${p.id})" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                tabContent = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold">商品列表</h3>
+                        <button onclick="openEditProduct(null)" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"><i class="fas fa-plus"></i> 新增商品</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-gray-400 border-b border-slate-600">
+                                    <th class="p-3">ID</th>
+                                    <th class="p-3">名称</th>
+                                    <th class="p-3">价格</th>
+                                    <th class="p-3">库存</th>
+                                    <th class="p-3 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            } 
+            // Tab 1: Stats
+            else if (tabIndex === 1) {
+                const totalViews = Object.values(db.stats.views).reduce((a, b) => a + b, 0);
+                const productStats = db.products.map(p => {
+                    const v = db.stats.views[p.id] || 0;
+                    return `<div class="flex justify-between p-2 border-b border-slate-700"><span>${p.name}</span> <span class="font-mono">${v}</span></div>`;
+                }).join('');
+
+                tabContent = `
+                    <h3 class="text-xl font-bold mb-6">数据统计</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div class="glass-panel p-6 rounded-xl text-center">
+                            <div class="text-4xl font-bold text-blue-400 mb-2">${db.stats.visits}</div>
+                            <div class="text-gray-400">总访问人次 (Session)</div>
+                        </div>
+                        <div class="glass-panel p-6 rounded-xl text-center">
+                            <div class="text-4xl font-bold text-green-400 mb-2">${totalViews}</div>
+                            <div class="text-gray-400">商品总浏览量</div>
+                        </div>
+                    </div>
+                    <div class="glass-panel p-6 rounded-xl">
+                        <h4 class="font-bold mb-4">商品热度排行</h4>
+                        <div class="max-h-60 overflow-y-auto">${productStats}</div>
+                    </div>
+                `;
+            }
+            // Tab 2: Settings
+            else if (tabIndex === 2) {
+                tabContent = `
+                    <h3 class="text-xl font-bold mb-6">网站设置</h3>
+                    <form onsubmit="saveSettings(event)" class="max-w-lg space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">网站标题</label>
+                            <input type="text" name="title" value="${db.config.title}" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">微信号</label>
+                                <input type="text" name="wechat" value="${db.config.wechat}" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1">QQ号</label>
+                                <input type="text" name="qq" value="${db.config.qq}" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">联系邮箱</label>
+                            <input type="email" name="email" value="${db.config.email}" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-1">管理员密码</label>
+                            <input type="text" name="password" value="${db.config.password}" class="w-full p-2 rounded bg-slate-800 border border-slate-600 text-white">
+                        </div>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded">保存设置</button>
+                    </form>
+                `;
+            }
+
+            app.innerHTML = `
+                <div class="glass-panel rounded-xl min-h-[600px] flex flex-col md:flex-row overflow-hidden">
+                    <!-- Sidebar -->
+                    <div class="w-full md:w-48 bg-slate-800/50 border-r border-slate-700 flex flex-col">
+                        <div class="p-4 font-bold text-center border-b border-slate-700">后台管理</div>
+                        ${tabs.map((t, i) => `
+                            <button onclick="renderAdmin(${i})" class="p-4 text-left hover:bg-slate-700 ${i === tabIndex ? 'bg-slate-700 text-blue-400 border-l-4 border-blue-400' : 'text-gray-400'}">
+                                ${t}
+                            </button>
+                        `).join('')}
+                        <button onclick="logout()" class="mt-auto p-4 text-left text-red-400 hover:bg-slate-700 border-t border-slate-700">
+                            <i class="fas fa-sign-out-alt"></i> 退出登录
+                        </button>
+                    </div>
+                    <!-- Content -->
+                    <div class="flex-grow p-6 overflow-y-auto">
+                        ${tabContent}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- Product CRUD ---
+
+        function openEditProduct(id) {
+            currentEditId = id;
+            const modal = document.getElementById('product-modal');
+            const title = document.getElementById('product-modal-title');
+            
+            // Reset fields
+            tempImages = [];
+            
+            if (id) {
+                const p = db.products.find(x => x.id === id);
+                title.innerText = "编辑商品";
+                document.getElementById('edit-name').value = p.name;
+                document.getElementById('edit-price').value = p.price;
+                document.getElementById('edit-stock').value = p.stock;
+                tempImages = [...p.images];
+                quill.root.innerHTML = p.desc;
+            } else {
+                title.innerText = "新增商品";
+                document.getElementById('edit-name').value = "";
+                document.getElementById('edit-price').value = "";
+                document.getElementById('edit-stock').value = "";
+                quill.root.innerHTML = "";
+            }
+            
+            renderImagePreview();
+            openModal('product-modal');
+        }
+
+        function renderImagePreview() {
+            const list = document.getElementById('img-preview-list');
+            list.innerHTML = tempImages.map((img, idx) => `
+                <div class="relative group w-20 h-20">
+                    <img src="${img}" class="w-full h-full object-cover rounded border border-slate-600">
+                    <button onclick="removeImage(${idx})" class="absolute top-0 right-0 bg-red-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-xs opacity-0 group-hover:opacity-100 transition">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addImageUrl() {
+            const input = document.getElementById('img-url-input');
+            const url = input.value.trim();
+            if (url) {
+                if (tempImages.length >= 5) return alert("最多5张图片");
+                tempImages.push(url);
+                input.value = '';
+                renderImagePreview();
+            }
+        }
+
+        function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                if (tempImages.length >= 5) return alert("最多5张图片");
+                const file = input.files[0];
+                if (file.size > 2 * 1024 * 1024) return alert("图片大小不能超过2MB");
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    tempImages.push(e.target.result);
+                    renderImagePreview();
+                    input.value = ''; // reset
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImage(idx) {
+            tempImages.splice(idx, 1);
+            renderImagePreview();
+        }
+
+        function saveProduct() {
+            const name = document.getElementById('edit-name').value;
+            const price = parseFloat(document.getElementById('edit-price').value);
+            const stock = parseInt(document.getElementById('edit-stock').value);
+            const desc = quill.root.innerHTML;
+
+            if (!name || isNaN(price)) return alert("请填写完整信息");
+
+            if (currentEditId) {
+                // Edit
+                const idx = db.products.findIndex(x => x.id === currentEditId);
+                if (idx !== -1) {
+                    db.products[idx] = { ...db.products[idx], name, price, stock, desc, images: tempImages };
+                }
+            } else {
+                // Add
+                const newId = db.products.length > 0 ? Math.max(...db.products.map(p => p.id)) + 1 : 1;
+                db.products.push({ id: newId, name, price, stock, desc, images: tempImages });
+            }
+
+            saveDb();
+            closeModal('product-modal');
+            renderAdmin(0); // Refresh list
+        }
+
+        function deleteProduct(id) {
+            if (confirm('确定删除该商品吗？')) {
+                db.products = db.products.filter(p => p.id !== id);
+                saveDb();
+                renderAdmin(0);
+            }
+        }
+
+        function saveSettings(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            db.config.title = formData.get('title');
+            db.config.wechat = formData.get('wechat');
+            db.config.qq = formData.get('qq');
+            db.config.email = formData.get('email');
+            db.config.password = formData.get('password');
+            saveDb();
+            updateGlobalConfig();
+            alert('设置已保存');
+        }
+
+        // --- Utilities ---
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+        
+        function checkAdminLogin() {
+            if(isAdmin) renderAdmin();
+            else openModal('login-modal');
+        }
+
+        // Start
+        window.onload = init;
+
+    </script>
+</body>
+</html>
